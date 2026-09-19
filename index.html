@@ -11140,6 +11140,7 @@ function backFromStats(){ state.screen = state.prevScreen||"season"; render(); }
 async function submitToLeaderboard(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }  // block duplicate saves of the same run
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const s = state.season, po = state.playoffs, aw = state.awards||{};
   const honors = [];
   if(aw.mvp) honors.push("MVP");
@@ -12169,7 +12170,7 @@ function saveBlock(){
   }
   return `<div class="yardline"></div>
     <label>Save your run to the leaderboard</label>
-    <input id="lbName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+    <input id="lbName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
       <button class="btn" onclick="submitToLeaderboard(document.getElementById('lbName').value)">Save &amp; View Leaderboard</button>
       <button class="btn secondary" onclick="shareResult()">${state.shared2?"✅ Shared!":"📸 Share Result"}</button>
@@ -12765,6 +12766,7 @@ function gFinishSeason(){
 async function gSubmitCampaign(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const g = state.gauntlet;
   const best = (g.history||[]).reduce((a,h)=> (h.wins>(a?a.wins:-1) ? h : a), null);
   try{
@@ -12847,7 +12849,7 @@ function postRender(){
 }
 /* ---------- Save / resume an in-progress run ---------- */
 const RUN_KEY = "seventeen0-run";
-const RUN_FIELDS = ["screen","mode","chosenEra","revealed","picks","teamSpin","decadeSpin","teamRespinsLeft","decadeRespinsLeft","season","playoffs","statsReg","statsPost","awards","statsView","draft","runSaved","capSpent","lockedTeam","gauntlet","gPick","league","lgCfg","lgScoutIdx","wildcardLayout"];
+const RUN_FIELDS = ["screen","mode","chosenEra","revealed","picks","teamSpin","decadeSpin","teamRespinsLeft","decadeRespinsLeft","season","playoffs","statsReg","statsPost","awards","statsView","draft","runSaved","capSpent","lockedTeam","lockedDecade","gauntlet","gPick","league","lgCfg","lgScoutIdx","wildcardLayout","multiplayer","challenge","h2h","immortals","attritionDraftAvg","pnp"];
 function runInProgress(){
   if(state.league && !state.league.over) return true; return !!(state.chosenEra && (Object.keys(state.picks||{}).length>0 || state.season || state.playoffs || (state.gauntlet && !state.gauntlet.over))); }
 function saveRun(){
@@ -12876,6 +12878,14 @@ function resumeRun(){
   // from your league team and every edit goes to a ghost roster.
   if(state.league && state.league.teams && state.league.teams[0]){
     state.picks = state.league.teams[0].roster;
+  }
+  // Same identity split as league, for Pass & Play: state.picks and pnp.rosters[currentTurn]
+  // are the same live object while that player is drafting, but JSON round-tripping through
+  // save/resume breaks that link -- re-bind so the resumed player's picks keep landing in
+  // the shared roster the shared-pool and turn-passing logic actually reads from.
+  if(state.pnp && state.pnp.active && state.pnp.rosters){
+    const cur = state.pnp.order[state.pnp.turnIdx];
+    if(state.pnp.rosters[cur]) state.picks = state.pnp.rosters[cur];
   }
   // a resumed Wildcard run must come back with the SAME randomized layout it was drafted
   // against, not a freshly regenerated one and not the default 16 -- either would silently
@@ -13222,7 +13232,7 @@ function renderGOver(){
       ? `<p class="small" style="margin-bottom:10px;">\u2713 This campaign is on the Gauntlet leaderboard.</p>
          <button class="btn" onclick="viewLeaderboards()">View Leaderboard</button>`
       : `<label>Save this campaign to the Gauntlet leaderboard</label>
-         <input id="gName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+         <input id="gName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
          <button class="btn" onclick="gSubmitCampaign(document.getElementById('gName').value)">\ud83d\udc8d Save \u2014 ${g.rings} ${g.rings===1?'ring':'rings'}, ${g.season} seasons</button>`}
   </div>
   ${(state.gauntlet && gRingTax() >= 1) ? `<div class="card center" style="border-color:rgba(242,194,48,.35);">
@@ -14275,6 +14285,7 @@ function lgAfterSeason(){
 async function lgSubmit(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const L = state.league, me = L.teams[0];
   const best = (L.history||[]).reduce((a,h)=> (h.wins>(a?a.wins:-1)?h:a), null);
   try{
@@ -14568,7 +14579,7 @@ function renderLgBracket(){
   ${done?`<div class="card center">
       ${L.over
         ? `<p class="small" style="margin-bottom:10px;"><b>${L.ended}</b><br>${L.rings} ring${L.rings===1?'':'s'} across ${L.season} seasons.</p>
-           <input id="lgName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+           <input id="lgName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
            <button class="btn" onclick="lgSubmit(document.getElementById('lgName').value)">\ud83d\udc8d Save \u2014 ${L.rings} ring${L.rings===1?'':'s'}, ${L.season} seasons</button>`
         : `<button class="btn" onclick="lgAfterSeason()">To the Offseason \u2192</button>`}
       <button class="btn secondary" style="margin-top:8px;" onclick="goMenu()">Back to Menu</button>
@@ -15122,6 +15133,7 @@ function openAchievements(){ achievementsOpen=true; render(); }
   if(maybeShowLiveCheck()) return; // private admin view -- takes over the whole page, skips the game entirely
   startPresenceHeartbeat();
   await loadLifetime();
+  state.coachName = state.lifetime.coachName || null;
   try{ const _r=await loadDaily(); state.dailyStreak=dailyStreak(_r); state.dailyTodayDone=!!(_r&&_r[todayStr()]); }catch(e){ state.dailyStreak=0; state.dailyTodayDone=false; }
   let ch=null;
   try{
