@@ -8680,12 +8680,13 @@ async function supaFetchPaged(modeFilter){
 async function supaFetch(){ return supaFetchPaged(null); }
 async function supaFetchMode(mode){ return supaFetchPaged(mode); }
 async function supaFetchDaily(date){
-  // pull today's daily-challenge entries so we can rank a fresh run against everyone
-  const url=SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/leaderboard?select=data&mode=eq.daily&order=created_at.desc&limit=5000";
-  const res=await fetch(url, { headers: supaHeaders() });
-  if(!res.ok) throw new Error("supa daily fetch "+res.status);
-  const rows=await res.json();
-  return rows.map(r=>r.data).filter(d=>d && d.date===date);
+  // pull today's daily-challenge entries so we can rank a fresh run against everyone.
+  // A single request capped at limit=5000 silently truncates at the Supabase project's
+  // real row cap (the same 1000-row default the general leaderboard hit and fixed with
+  // supaFetchPaged's paging loop) -- reuse that already-correct pagination here instead
+  // of a second, unpaginated copy of the same request.
+  const rows = await supaFetchMode("daily");
+  return rows.filter(d=>d && d.date===date);
 }
 // ---- challenge loop: recipient saves the result so the sender can see it ----
 function sentChallengesKey(){ return "seventeen0-sent-challenges"; }
