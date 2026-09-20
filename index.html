@@ -7415,7 +7415,7 @@ const CHAMPION_RINGS = {
  "Jack Lambert":4,"Mel Blount":4,"Jack Ham":4,"Rob Gronkowski":4,"Julian Edelman":3,"Bill Romanowski":4,
  "Peyton Manning":2,"Eli Manning":2,"John Elway":2,"Terrell Davis":2,"Ray Lewis":2,"Ben Roethlisberger":2,
  "Patrick Mahomes":3,"Travis Kelce":3,"Aaron Donald":1,"Von Miller":2,"Deion Sanders":2,"Marcus Allen":1,
- "Reggie White":1,"Ray Nitschke":2,"Roger Staubach":2,"Doug Williams":1,"Joe Namath":1,"Kurt Warner":1,
+ "Reggie White":1,"Roger Staubach":2,"Doug Williams":1,"Joe Namath":1,"Kurt Warner":1,
  "Drew Brees":1,"Peyton Hillis":0
 };
 // Super Bowl MVP count — used in the Super Bowl game
@@ -7434,7 +7434,7 @@ const TIMELESS = new Set(["Deion Sanders","Aaron Donald","Peyton Manning","Joe M
 // J.J. Watt, Gronk, Kuechly and Patrick Willis are deliberately EXCLUDED (short or injury-shortened careers).
 // Tier 1 = appears in 3 roster decades (provably 15+ yr career). Tier 2 = documented long careers.
 const IRONMAN = new Set(["Jerry Rice", "Tom Brady", "Peyton Manning", "Ray Lewis", "Tony Gonzalez", "Aaron Rodgers", "Bruce Smith", "Champ Bailey", "Drew Brees", "Rod Woodson", "Larry Fitzgerald", "Darrell Green", "Ben Roethlisberger", "Calais Campbell", "Philip Rivers", "Frank Gore", "London Fletcher", "Vinny Testaverde", "Brett Favre", "Junior Seau", "Charles Woodson", "Jason Witten", "Tim Brown", "Dan Marino", "Julius Peppers", "Terrell Suggs", "Warren Moon", "Cris Carter", "Andre Reed", "Marcus Allen", "John Elway", "Antonio Gates", "Eli Manning", "Emmitt Smith", "Reggie White", "Terrell Owens", "Adrian Peterson", "Cameron Heyward", "Randy Moss", "Steve Largent", "Deion Sanders", "Ronnie Lott", "Derrick Brooks", "Walter Payton", "Marvin Harrison", "Travis Kelce", "Bobby Wagner", "Franco Harris", "Thurman Thomas"]);
-const GAMEBREAK = new Set(["Randy Moss","Tyreek Hill","Deion Sanders","Bo Jackson","Bob Hayes","Devin Hester","Barry Sanders","Cliff Branch","Willie Gault","Chris Johnson","Michael Vick","Marshall Faulk","Gale Sayers","Percy Harvin","Tavon Austin","DeSean Jackson","Raghib Ismail","Mel Gray","Dante Hall","Billy White Shoes","Jakeem Grant","Bob Hayes","Cordarrelle Patterson","Justin Jefferson","Ja'Marr Chase"]);
+const GAMEBREAK = new Set(["Randy Moss","Tyreek Hill","Deion Sanders","Bo Jackson","Bob Hayes","Devin Hester","Barry Sanders","Cliff Branch","Willie Gault","Chris Johnson","Michael Vick","Marshall Faulk","Gale Sayers","Percy Harvin","Tavon Austin","DeSean Jackson","Raghib Ismail","Mel Gray","Dante Hall","Billy Johnson","Jakeem Grant","Bob Hayes","Cordarrelle Patterson","Justin Jefferson","Ja'Marr Chase"]);
 const BALLHAWK = new Set(["Ed Reed","Rod Woodson","Ronnie Lott","Paul Krause","Ken Riley","Darren Sharper","Charles Woodson","Deion Sanders","Aeneas Williams","Everson Walls","Emmitt Thomas","Lem Barney","Dick LeBeau","Nnamdi Asomugha","Marcus Peters","Xavien Howard","Trevon Diggs","Minkah Fitzpatrick","Jalen Ramsey","Ed Too Tall Jones","Aaron Williams","Antrel Rolle","Brian Dawkins","Troy Polamalu","Kam Chancellor","Earl Thomas","Tyrann Mathieu","Jessie Bates","Antoine Winfield Jr"]);
 // Dynamic duos (famous real pairings). Partner lookup both ways.
 const DUO_PAIRS = [
@@ -7448,8 +7448,17 @@ const DUO_PAIRS = [
  ["Josh Allen|QB","Stefon Diggs"],["Joe Burrow","Ja'Marr Chase"]
 ];
 const DUO_PARTNER = {};
-DUO_PAIRS.forEach(([a,b])=>{ DUO_PARTNER[a]=b; DUO_PARTNER[b]=a; });
-function duoPartnerOf(name,pos){ const p = DUO_PARTNER[tagKey(name,pos)]; return p ? p.split("|")[0] : null; }
+DUO_PAIRS.forEach(([a,b])=>{ (DUO_PARTNER[a]=DUO_PARTNER[a]||[]).push(b); (DUO_PARTNER[b]=DUO_PARTNER[b]||[]).push(a); });
+/* A player can have more than one real-life duo partner (e.g. Jerry Rice played with both
+   Montana and Young) -- DUO_PARTNER stores every candidate per player, and this picks whichever
+   one is actually on the roster (falling back to the first for display when neither is drafted yet)
+   so the +5 bonus fires correctly no matter which side of the pair the player was drafted from. */
+function duoPartnerOf(name,pos){
+  const list = DUO_PARTNER[tagKey(name,pos)];
+  if(!list || !list.length) return null;
+  const names = list.map(p=>p.split("|")[0]);
+  return names.find(rosterHasName) || names[0];
+}
 
 /* Which tier/detail does THIS player have for a given tag? Returns a short suffix like "T1", "1st", "S", or "" */
 function tagTierOf(name, pos, tag){
@@ -8090,6 +8099,8 @@ const ACHIEVEMENTS = [
  {id:"lg_underdog", icon:"🐺", name:"Nobody's Favourite", desc:"Win the League with a roster under 88 OVR.", g:"league"},
  {id:"lg_cinderella", icon:"👒", name:"Cinderella", desc:"Win the League from the #5 seed or worse.", g:"league"},
  {id:"lg_topseed", icon:"🥇", name:"Best in the League", desc:"Finish the regular season as the #1 seed.", g:"league"},
+ {id:"lg_era", icon:"⏳", name:"League Mainstay", desc:"Survive 10 seasons in a single League run.", g:"league"},
+ {id:"lg_dynasty", icon:"👑", name:"League Dynasty", desc:"Win 3+ championships in a single League run.", g:"league"},
  {id:"m_sniped", icon:"🎯", name:"Sniped", desc:"Take a 95+ player one pick before your opponent's turn.", g:"multiplayer"},
  {id:"m_robbed", icon:"😢", name:"Robbed", desc:"Lose a 95+ player to the pick right before yours. It happens.", g:"multiplayer"},
  {id:"m_beathistorian", icon:"🧠", name:"Out-Knowledged", desc:"Beat the Historian AI on its own turf \u2014 in Ball Knowers.", g:"multiplayer"},
@@ -8102,7 +8113,7 @@ const ACHIEVEMENTS = [
  {id:"st_workhorse", icon:"🐎", name:"Workhorse", desc:"1,800+ rushing yards in a season.", g:"all"},
  {id:"st_2krush", icon:"🏁", name:"The 2,000 Club", desc:"2,000+ rushing yards in a season — ground-and-pound eras only.", g:"all"},
  {id:"st_goalline", icon:"🚩", name:"Goal Line Back", desc:"14+ rushing TDs in a season.", g:"all"},
- {id:"st_thousand", icon:"🙌", name:"Thousand-Yard Man", desc:"A 1,500+ yard receiver in a season.", g:"all"},
+ {id:"st_thousand", icon:"🙌", name:"The 1,500 Club", desc:"A 1,500+ yard receiver in a season.", g:"all"},
  {id:"st_2krec", icon:"👑", name:"Two Thousand", desc:"A 2,000-yard receiver — something no one has ever actually done.", g:"all"},
  {id:"st_endzone", icon:"🏈", name:"Red Zone Threat", desc:"16+ receiving TDs in a season.", g:"all"},
  {id:"st_hands", icon:"🧤", name:"Sure Hands", desc:"130+ catches in a season.", g:"all"},
@@ -8184,8 +8195,8 @@ const ROSTER_DATA = {
   },
   "Dallas Cowboys": {
     "1960s": [["Don Meredith","QB",86,"3x Pro Bowl, led 66-68 title runs"],["Craig Morton","QB",79,"took over 69, strong arm"],["Don Perkins","RB",84,"6x Pro Bowl, franchise rush king"],["Dan Reeves","RB",80,"versatile back, future coach"],["Calvin Hill","RB",83,"69 Rookie of Year"],["Bob Hayes","WR",93,"64 rec 1,232 yds 13 TD (66), fastest man alive"],["Frank Clarke","WR",84,"1st-team All-Pro (64), led NFL rec TD (62)"],["Lance Rentzel","WR",81,"led NFL rec TD (69), 1,009 yds (68)"],["Pettis Norman","TE",78,"blocking TE, title-game catch"],["Lee Folkins","TE",77,"Pro Bowl TE (63)"],["Bob Lilly","DT",96,"Mr. Cowboy, HOF, 11x Pro Bowl"],["George Andrie","DL",84,"5x Pro Bowl DE"],["Larry Cole","DL",79,"Doomsday D end"],["Jethro Pugh","DT",82,"Doomsday interior, run-stuffer"],["Chuck Howley","LB",89,"HOF-level, only losing-side SB MVP"],["Lee Roy Jordan","LB",87,"HOF MLB, Doomsday leader"],["Dave Edwards","LB",79,"steady outside LB"],["Mel Renfro","CB",90,"HOF, 10x Pro Bowl DB"],["Cornell Green","CB",84,"5x Pro Bowl convert corner"],["Mike Gaechter","S",78,"ballhawking deep safety"],["Walt Garrison","RB",74,"tough fullback, SB VI champ, later Pro Bowl"],["Buddy Dial","WR",74,"2x Pro Bowl receiver, deep threat"],["Don Bishop","CB",72,"veteran defensive back, INT threat"],["Colin Ridgway","RB",62,"reserve/special teams"],["Pete Gent","WR",65,"reserve receiver (later author)"],["Harold Hays","LB",70,"reserve linebacker"],["Willie Townes","DL",72,"rotational defensive end"],["Les Shy","RB",62,"reserve back"],["Craig Baynham","RB",62,"reserve back"],["Phil Clark","CB",62,"reserve DB"],["Otto Brown","CB",60,"reserve DB"],["Malcolm Walker","LB",60,"reserve LB"],["Sonny Gibbs","QB",60,"reserve QB"]],
-    "1970s": [["Roger Staubach","QB",94,"Captain Comeback (77)"],["Craig Morton","QB",76,"early-70s QB (71)"],["Danny White","QB",78,"late-70s (78)"],["Tony Dorsett","RB",92,"ROY 1,007 yds (77)"],["Calvin Hill","RB",82,"1,000 yds (72)"],["Robert Newhouse","RB",76,"power back (75)"],["Duane Thomas","RB",78,"SB back (71)"],["Drew Pearson","WR",86,"clutch WR (77)"],["Bob Hayes","WR",86,"world's fastest (70)"],["Golden Richards","WR",74,"deep threat (75)"],["Billy Joe DuPree","TE",80,"receiving TE (77)"],["Ed Jones","DL",86,"Too Tall DE (77)"],["Harvey Martin","DL",89,"SB XII co-MVP (77)"],["Jethro Pugh","DT",80,"interior (75)"],["Randy White","DT",93,"Manster rookie (77)"],["Bob Lilly","DT",93,"Mr. Cowboy (71)"],["Lee Roy Jordan","LB",84,"MLB leader (73)"],["Chuck Howley","LB",85,"SB V MVP (70)"],["D.D. Lewis","LB",78,"LB (75)"],["Mel Renfro","CB",87,"HOF CB (71)"],["Cornell Green","CB",78,"veteran (71)"],["Benny Barnes","CB",74,"CB (77)"],["Cliff Harris","S",90,"HOF — 6x Pro Bowl, 2 rings"],["Charlie Waters","S",82,"ball-hawk (77)"],["Clint Longley","QB",68,"backup 'Mad Bomber' (74)"],["Preston Pearson","RB",76,"3rd-down back (77)"],["Scott Laidlaw","RB",70,"depth back (77)"],["Doug Dennison","RB",70,"goal-line (75)"],["Butch Johnson","WR",74,"deep threat (77)"],["Tony Hill","WR",78,"rookie WR (77)"],["Jackie Smith","TE",74,"vet TE (78)"],["Jean Fugett","TE",72,"receiving TE (75)"],["Larry Cole","DL",76,"DE (77)"],["Bill Gregory","DL",72,"DE (75)"],["Pat Toomay","DL",72,"DE (73)"],["Bob Breunig","LB",78,"MLB (78)"],["Thomas Henderson","LB",78,"'Hollywood' (77)"],["Dave Edwards","LB",74,"OLB (73)"],["Aaron Kyle","CB",72,"CB (77)"],["Mark Washington","CB",72,"CB (75)"],["Randy Hughes","S",72,"S (77)"]],
-    "1980s": [["Danny White","QB",82,"3x NFC title game (82)"],["Steve Pelluer","QB",72,"mid-80s (86)"],["Tony Dorsett","RB",88,"1,646 yds (81)"],["Herschel Walker","RB",86,"2,411 all-purpose (88)"],["Timmy Newsome","RB",74,"3rd-down back (85)"],["Tony Hill","WR",84,"1,113 yds (85)"],["Drew Pearson","WR",80,"early-80s WR (81)"],["Mike Renfro","WR",74,"possession (84)"],["Doug Cosbie","TE",80,"3x PB TE (85)"],["Billy Joe DuPree","TE",76,"TE (82)"],["Ed Jones","DL",84,"Too Tall vet (82)"],["Jim Jeffcoat","DL",80,"pass rush (85)"],["Randy White","DT",90,"Manster (82)"],["John Dutton","DT",78,"interior (82)"],["Bill Bates","S",78,"special teamer/S (84)"],["Michael Downs","S",78,"ball-hawk (84)"],["Dennis Thurman","CB",76,"INT (81)"],["Everson Walls","CB",84,"led NFL INT (81)"],["Randy Hughes","S",74,"S (80)"],["Eugene Lockhart","LB",78,"tackle machine (86)"],["Jeff Rohrer","LB",72,"LB (85)"],["Mike Hegman","LB",74,"LB (82)"],["Gary Hogeboom","QB",70,"backup (84)"],["Robert Lavette","RB",68,"depth (85)"],["Kelvin Edwards","WR",70,"WR (86)"],["Thornton Chandler","TE",68,"blocking TE (86)"],["Don Smerek","DL",70,"DE (84)"],["Kevin Brooks","DT",70,"DT (86)"],["Steve DeOssie","LB",70,"LB (86)"],["Ron Fellows","CB",72,"CB (84)"],["Dextor Clinkscale","S",70,"S (83)"]],
+    "1970s": [["Roger Staubach","QB",94,"Captain Comeback (77)"],["Craig Morton","QB",76,"early-70s QB (71)"],["Danny White","QB",78,"late-70s (78)"],["Tony Dorsett","RB",92,"ROY 1,007 yds (77)"],["Calvin Hill","RB",82,"1,000 yds (72)"],["Robert Newhouse","RB",76,"power back (75)"],["Duane Thomas","RB",78,"SB back (71)"],["Drew Pearson","WR",86,"clutch WR (77)"],["Bob Hayes","WR",86,"world's fastest (70)"],["Golden Richards","WR",74,"deep threat (75)"],["Billy Joe DuPree","TE",80,"receiving TE (77)"],["Ed Too Tall Jones","DL",86,"Too Tall DE (77)"],["Harvey Martin","DL",89,"SB XII co-MVP (77)"],["Jethro Pugh","DT",80,"interior (75)"],["Randy White","DT",93,"Manster rookie (77)"],["Bob Lilly","DT",93,"Mr. Cowboy (71)"],["Lee Roy Jordan","LB",84,"MLB leader (73)"],["Chuck Howley","LB",85,"SB V MVP (70)"],["D.D. Lewis","LB",78,"LB (75)"],["Mel Renfro","CB",87,"HOF CB (71)"],["Cornell Green","CB",78,"veteran (71)"],["Benny Barnes","CB",74,"CB (77)"],["Cliff Harris","S",90,"HOF — 6x Pro Bowl, 2 rings"],["Charlie Waters","S",82,"ball-hawk (77)"],["Clint Longley","QB",68,"backup 'Mad Bomber' (74)"],["Preston Pearson","RB",76,"3rd-down back (77)"],["Scott Laidlaw","RB",70,"depth back (77)"],["Doug Dennison","RB",70,"goal-line (75)"],["Butch Johnson","WR",74,"deep threat (77)"],["Tony Hill","WR",78,"rookie WR (77)"],["Jackie Smith","TE",74,"vet TE (78)"],["Jean Fugett","TE",72,"receiving TE (75)"],["Larry Cole","DL",76,"DE (77)"],["Bill Gregory","DL",72,"DE (75)"],["Pat Toomay","DL",72,"DE (73)"],["Bob Breunig","LB",78,"MLB (78)"],["Thomas Henderson","LB",78,"'Hollywood' (77)"],["Dave Edwards","LB",74,"OLB (73)"],["Aaron Kyle","CB",72,"CB (77)"],["Mark Washington","CB",72,"CB (75)"],["Randy Hughes","S",72,"S (77)"]],
+    "1980s": [["Danny White","QB",82,"3x NFC title game (82)"],["Steve Pelluer","QB",72,"mid-80s (86)"],["Tony Dorsett","RB",88,"1,646 yds (81)"],["Herschel Walker","RB",86,"2,411 all-purpose (88)"],["Timmy Newsome","RB",74,"3rd-down back (85)"],["Tony Hill","WR",84,"1,113 yds (85)"],["Drew Pearson","WR",80,"early-80s WR (81)"],["Mike Renfro","WR",74,"possession (84)"],["Doug Cosbie","TE",80,"3x PB TE (85)"],["Billy Joe DuPree","TE",76,"TE (82)"],["Ed Too Tall Jones","DL",84,"Too Tall vet (82)"],["Jim Jeffcoat","DL",80,"pass rush (85)"],["Randy White","DT",90,"Manster (82)"],["John Dutton","DT",78,"interior (82)"],["Bill Bates","S",78,"special teamer/S (84)"],["Michael Downs","S",78,"ball-hawk (84)"],["Dennis Thurman","CB",76,"INT (81)"],["Everson Walls","CB",84,"led NFL INT (81)"],["Randy Hughes","S",74,"S (80)"],["Eugene Lockhart","LB",78,"tackle machine (86)"],["Jeff Rohrer","LB",72,"LB (85)"],["Mike Hegman","LB",74,"LB (82)"],["Gary Hogeboom","QB",70,"backup (84)"],["Robert Lavette","RB",68,"depth (85)"],["Kelvin Edwards","WR",70,"WR (86)"],["Thornton Chandler","TE",68,"blocking TE (86)"],["Don Smerek","DL",70,"DE (84)"],["Kevin Brooks","DT",70,"DT (86)"],["Steve DeOssie","LB",70,"LB (86)"],["Ron Fellows","CB",72,"CB (84)"],["Dextor Clinkscale","S",70,"S (83)"]],
     "1990s": [["Troy Aikman","QB",91,"3x SB champ (92)"],["Emmitt Smith","RB",96,"1,773 rush MVP (93)"],["Michael Irvin","WR",93,"1,603 yds (95)"],["Daryl Johnston","RB",80,"lead FB (93)"],["Alvin Harper","WR",80,"deep threat (94)"],["Jay Novacek","TE",84,"reliable TE (92)"],["Charles Haley","DL",89,"pass rusher (94)"],["Leon Lett","DT",84,"interior (94)"],["Ken Norton Jr","LB",84,"tackles (93)"],["Deion Sanders","CB",99,"lockdown (96)"],["Darren Woodson","S",90,"5-time PB (94)"],["Chris Warren","RB",74,"veteran (98)"],["Kevin Williams","WR",72,"return/WR (95)"],["Tony Tolbert","DL",80,"edge (93)"],["Darrin Smith","LB",78,"tackles (94)"],["Kevin Smith","CB",80,"INT (94)"],["Steve Beuerlein","QB",72,"backup (91)"],["Jason Garrett","QB",68,"backup (94)"],["Sherman Williams","RB",68,"depth (96)"],["Rocket Ismail","WR",76,"speed (99)"],["Eric Bjornson","TE",68,"receiving TE (96)"],["Jim Jeffcoat","DL",76,"vet DE (93)"],["Kavika Pittman","DL",70,"DE (97)"],["Russell Maryland","DT",78,"#1 pick (93)"],["Chad Hennings","DT",74,"interior (95)"],["Dixon Edwards","LB",74,"OLB (93)"],["Robert Jones","LB",76,"MLB (92)"],["Larry Brown","CB",76,"SB XXX MVP (95)"],["Clayton Holmes","CB",68,"nickel (93)"],["Bill Bates","S",70,"vet ST (95)"],["Brock Marion","S",74,"FS (95)"]],
     "2000s": [["Tony Romo","QB",88,"4,211 yds (07)"],["Drew Bledsoe","QB",78,"vet QB (05)"],["Julius Jones","RB",80,"lead back (04)"],["Marion Barber","RB",84,"bruiser (07)"],["Terrell Owens","WR",94,"1,355 yds, 15 TD (07)"],["Jason Witten","TE",90,"1,145 yds (07)"],["Terry Glenn","WR",82,"1,047 yds (05)"],["DeMarcus Ware","DL",93,"20 sacks (08)"],["Greg Ellis","DL",82,"12.5 sacks (07)"],["Bradie James","LB",82,"tackles (07)"],["Terence Newman","CB",84,"lockdown (07)"],["Roy Williams","S",84,"enforcer (03)"],["Felix Jones","RB",76,"change-up (08)"],["Patrick Crayton","WR",74,"slot (07)"],["Jay Ratliff","DT",82,"interior (08)"],["Anthony Henry","CB",76,"CB (07)"],["Quincy Carter","QB",70,"starter (03)"],["Vinny Testaverde","QB",72,"vet (04)"],["Troy Hambrick","RB",70,"lead back (03)"],["Tashard Choice","RB",72,"depth (08)"],["Keyshawn Johnson","WR",78,"possession (04)"],["Sam Hurd","WR",68,"depth (07)"],["Anthony Fasano","TE",70,"depth (06)"],["Dan Campbell","TE",70,"blocking TE (05)"],["Marcus Spears","DL",74,"DE (07)"],["Chris Canty","DL",76,"DE (08)"],["La'Roi Glover","DT",80,"interior rush (05)"],["Jason Ferguson","DT",76,"NT (07)"],["Bobby Carpenter","LB",70,"LB (07)"],["Kevin Burnett","LB",74,"LB (07)"],["Zach Thomas","LB",78,"vet MLB (08)"],["Aaron Glenn","CB",74,"vet CB (05)"],["Mike Jenkins","CB",74,"rookie CB (08)"],["Ken Hamlin","S",78,"ball-hawk (07)"],["Keith Davis","S",68,"ST/S (06)"]],
     "2010s": [["Tony Romo","QB",88,"4,903 yds (12)"],["Dak Prescott","QB",84,"23 TD rookie (16)"],["DeMarco Murray","RB",88,"1,845 rush (14)"],["Ezekiel Elliott","RB",89,"1,631 rush rookie (16)"],["Dez Bryant","WR",88,"1,320 yds, 16 TD (14)"],["Jason Witten","TE",86,"reliable TE (12)"],["Cole Beasley","WR",78,"slot (16)"],["Sean Lee","LB",86,"tackle machine (16)"],["DeMarcus Lawrence","DL",87,"14.5 sacks (17)"],["Byron Jones","CB",84,"lockdown (18)"],["Orlando Scandrick","CB",78,"nickel (14)"],["Felix Jones","RB",74,"change-up (11)"],["Miles Austin","WR",78,"1,000 yds (11)"],["DeMarcus Ware","DL",90,"19.5 sacks (11)"],["Tyrone Crawford","DT",74,"interior (15)"],["Jaylon Smith","LB",78,"tackles (18)"],["Barry Church","S",76,"box S (14)"],["Kellen Moore","QB",68,"backup (15)"],["Brandon Weeden","QB",68,"backup (15)"],["Joseph Randle","RB",70,"depth (14)"],["Lance Dunbar","RB",70,"receiving back (14)"],["Rod Smith","RB",70,"depth (17)"],["Terrance Williams","WR",76,"deep threat (14)"],["Michael Gallup","WR",78,"rookie WR (18)"],["Brice Butler","WR",70,"depth (16)"],["Gavin Escobar","TE",68,"receiving TE (14)"],["Geoff Swaim","TE",68,"blocking TE (17)"],["Benson Mayowa","DL",72,"edge (16)"],["David Irving","DL",74,"interior rush (17)"],["Maliek Collins","DT",74,"interior (17)"],["Terrell McClain","DT",70,"NT (16)"],["Rolando McClain","LB",76,"MLB (14)"],["Anthony Hitchens","LB",74,"3-down (16)"],["Damien Wilson","LB",70,"LB (17)"],["Justin Durant","LB",72,"LB (14)"],["Brandon Carr","CB",78,"iron-man CB (14)"],["Morris Claiborne","CB",74,"CB (15)"],["Chidobe Awuzie","CB",76,"CB (18)"],["Anthony Brown","CB",72,"nickel (17)"],["J.J. Wilcox","S",72,"S (15)"],["Jeff Heath","S",70,"ST/S (17)"]],
@@ -8669,12 +8680,13 @@ async function supaFetchPaged(modeFilter){
 async function supaFetch(){ return supaFetchPaged(null); }
 async function supaFetchMode(mode){ return supaFetchPaged(mode); }
 async function supaFetchDaily(date){
-  // pull today's daily-challenge entries so we can rank a fresh run against everyone
-  const url=SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/leaderboard?select=data&mode=eq.daily&order=created_at.desc&limit=5000";
-  const res=await fetch(url, { headers: supaHeaders() });
-  if(!res.ok) throw new Error("supa daily fetch "+res.status);
-  const rows=await res.json();
-  return rows.map(r=>r.data).filter(d=>d && d.date===date);
+  // pull today's daily-challenge entries so we can rank a fresh run against everyone.
+  // A single request capped at limit=5000 silently truncates at the Supabase project's
+  // real row cap (the same 1000-row default the general leaderboard hit and fixed with
+  // supaFetchPaged's paging loop) -- reuse that already-correct pagination here instead
+  // of a second, unpaginated copy of the same request.
+  const rows = await supaFetchMode("daily");
+  return rows.filter(d=>d && d.date===date);
 }
 // ---- challenge loop: recipient saves the result so the sender can see it ----
 function sentChallengesKey(){ return "seventeen0-sent-challenges"; }
@@ -9188,12 +9200,28 @@ function challengeLink(){
   const base = (typeof location!=="undefined" && location.href) ? location.href.split("?")[0].split("#")[0] : "";
   return base + "?vs=" + code;
 }
-/* ratings for an arbitrary picks object (opponent's roster) */
+/* ratings for an arbitrary picks object (opponent's roster). Mirrors ratings()'s fix: a
+   fixed code list like "RB1,RB2" silently ignored anyone drafted into a slot it didn't
+   know about (a real "RB3" from a Wildcard Roster challenge, which IS offered for both
+   Challenge-by-Link and Pass & Play) -- their rating was dropped and a phantom 80 used
+   in its place. Grouping by each pick's own code (stripped of its trailing slot number)
+   instead of a fixed whitelist makes this follow whatever layout the roster actually used. */
 function ratingsFor(picks){
-  const eo = code => { const p=picks[code]; return p ? p.ovr : 80; };
-  const wavg = pairs => { let s=0,w=0; for(const p of pairs){ s+=eo(p[0])*p[1]; w+=p[1]; } return s/w; };
-  const off = wavg([["QB",1.9],["RB1",0.9],["RB2",0.6],["WR1",1.1],["WR2",0.9],["WR3",0.7],["TE",0.75],["FLEXO",0.85]]);
-  const def = wavg([["DL1",1.4],["DL2",1.0],["DT",0.9],["LB",1.0],["CB1",1.2],["CB2",0.9],["S",0.9],["FLEXD",0.85]]);
+  const eo = code => { const p=picks[code]; return p ? p.ovr : 0; };
+  const OFF_WEIGHTS = { QB:[1.9], RB:[0.9,0.6,0.4,0.27], WR:[1.1,0.9,0.7,0.5], TE:[0.75,0.5] };
+  const DEF_WEIGHTS = { DL:[1.4,1.0,0.7], DT:[0.9,0.6], LB:[1.0,0.7,0.5], CB:[1.2,0.9,0.65,0.5], S:[0.9,0.6] };
+  const buildSide = (weightsByPos, flexCode, flexWeight) => {
+    let s=0,w=0;
+    for(const pos in weightsByPos){
+      const codes = Object.keys(picks).filter(c=> c.replace(/[0-9]+$/,'')===pos)
+        .sort((a,b)=> a.localeCompare(b, undefined, {numeric:true}));
+      codes.forEach((c,i)=>{ const wt=weightsByPos[pos][Math.min(i,weightsByPos[pos].length-1)]; s+=eo(c)*wt; w+=wt; });
+    }
+    if(picks[flexCode]){ s+=eo(flexCode)*flexWeight; w+=flexWeight; }
+    return w ? s/w : 80;
+  };
+  const off = buildSide(OFF_WEIGHTS, "FLEXO", 0.85);
+  const def = buildSide(DEF_WEIGHTS, "FLEXD", 0.85);
   return {off, def};
 }
 function startChallengeFromLink(ch){
@@ -10928,8 +10956,9 @@ function bubbleNote(w, made){
   return "";
 }
 /* Season-stat achievements. Thresholds are set from a 600-roster Monte Carlo of the
-   actual sim (~p97), so each is rare but genuinely reachable. Note the sim's per-game
-   yardage ceiling makes a 2,000-yd rusher / 5,000-yd passer impossible by construction. */
+   actual sim (~p97), so each is rare but genuinely reachable -- including the 2,000-yd
+   rusher / 5,000-yd passer seasons, once the per-game yardage ceiling (see the "boom"
+   roll in distributeMyGame) was raised specifically to stop barring them outright. */
 function checkStatAchievements(){
   const S = state.statsReg; if(!S) return;
   let teamSacks=0, teamInts=0;
@@ -11115,6 +11144,7 @@ function backFromStats(){ state.screen = state.prevScreen||"season"; render(); }
 async function submitToLeaderboard(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }  // block duplicate saves of the same run
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const s = state.season, po = state.playoffs, aw = state.awards||{};
   const honors = [];
   if(aw.mvp) honors.push("MVP");
@@ -12144,7 +12174,7 @@ function saveBlock(){
   }
   return `<div class="yardline"></div>
     <label>Save your run to the leaderboard</label>
-    <input id="lbName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+    <input id="lbName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
       <button class="btn" onclick="submitToLeaderboard(document.getElementById('lbName').value)">Save &amp; View Leaderboard</button>
       <button class="btn secondary" onclick="shareResult()">${state.shared2?"✅ Shared!":"📸 Share Result"}</button>
@@ -12740,6 +12770,7 @@ function gFinishSeason(){
 async function gSubmitCampaign(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const g = state.gauntlet;
   const best = (g.history||[]).reduce((a,h)=> (h.wins>(a?a.wins:-1) ? h : a), null);
   try{
@@ -12822,7 +12853,7 @@ function postRender(){
 }
 /* ---------- Save / resume an in-progress run ---------- */
 const RUN_KEY = "seventeen0-run";
-const RUN_FIELDS = ["screen","mode","chosenEra","revealed","picks","teamSpin","decadeSpin","teamRespinsLeft","decadeRespinsLeft","season","playoffs","statsReg","statsPost","awards","statsView","draft","runSaved","capSpent","lockedTeam","gauntlet","gPick","league","lgCfg","lgScoutIdx","wildcardLayout"];
+const RUN_FIELDS = ["screen","mode","chosenEra","revealed","picks","teamSpin","decadeSpin","teamRespinsLeft","decadeRespinsLeft","season","playoffs","statsReg","statsPost","awards","statsView","draft","runSaved","capSpent","lockedTeam","lockedDecade","gauntlet","gPick","league","lgCfg","lgScoutIdx","wildcardLayout","multiplayer","challenge","h2h","immortals","attritionDraftAvg","pnp"];
 function runInProgress(){
   if(state.league && !state.league.over) return true; return !!(state.chosenEra && (Object.keys(state.picks||{}).length>0 || state.season || state.playoffs || (state.gauntlet && !state.gauntlet.over))); }
 function saveRun(){
@@ -12851,6 +12882,14 @@ function resumeRun(){
   // from your league team and every edit goes to a ghost roster.
   if(state.league && state.league.teams && state.league.teams[0]){
     state.picks = state.league.teams[0].roster;
+  }
+  // Same identity split as league, for Pass & Play: state.picks and pnp.rosters[currentTurn]
+  // are the same live object while that player is drafting, but JSON round-tripping through
+  // save/resume breaks that link -- re-bind so the resumed player's picks keep landing in
+  // the shared roster the shared-pool and turn-passing logic actually reads from.
+  if(state.pnp && state.pnp.active && state.pnp.rosters){
+    const cur = state.pnp.order[state.pnp.turnIdx];
+    if(state.pnp.rosters[cur]) state.picks = state.pnp.rosters[cur];
   }
   // a resumed Wildcard run must come back with the SAME randomized layout it was drafted
   // against, not a freshly regenerated one and not the default 16 -- either would silently
@@ -13197,7 +13236,7 @@ function renderGOver(){
       ? `<p class="small" style="margin-bottom:10px;">\u2713 This campaign is on the Gauntlet leaderboard.</p>
          <button class="btn" onclick="viewLeaderboards()">View Leaderboard</button>`
       : `<label>Save this campaign to the Gauntlet leaderboard</label>
-         <input id="gName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+         <input id="gName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
          <button class="btn" onclick="gSubmitCampaign(document.getElementById('gName').value)">\ud83d\udc8d Save \u2014 ${g.rings} ${g.rings===1?'ring':'rings'}, ${g.season} seasons</button>`}
   </div>
   ${(state.gauntlet && gRingTax() >= 1) ? `<div class="card center" style="border-color:rgba(242,194,48,.35);">
@@ -14250,6 +14289,7 @@ function lgAfterSeason(){
 async function lgSubmit(name){
   if(state.runSaved || state.saving){ viewLeaderboards(); return; }
   state.saving = true;
+  if(name){ state.coachName = name; state.lifetime.coachName = name; saveLifetime(); }
   const L = state.league, me = L.teams[0];
   const best = (L.history||[]).reduce((a,h)=> (h.wins>(a?a.wins:-1)?h:a), null);
   try{
@@ -14543,7 +14583,7 @@ function renderLgBracket(){
   ${done?`<div class="card center">
       ${L.over
         ? `<p class="small" style="margin-bottom:10px;"><b>${L.ended}</b><br>${L.rings} ring${L.rings===1?'':'s'} across ${L.season} seasons.</p>
-           <input id="lgName" type="text" placeholder="Coach name" style="margin-bottom:10px;">
+           <input id="lgName" type="text" placeholder="Coach name" value="${state.coachName||''}" style="margin-bottom:10px;">
            <button class="btn" onclick="lgSubmit(document.getElementById('lgName').value)">\ud83d\udc8d Save \u2014 ${L.rings} ring${L.rings===1?'':'s'}, ${L.season} seasons</button>`
         : `<button class="btn" onclick="lgAfterSeason()">To the Offseason \u2192</button>`}
       <button class="btn secondary" style="margin-top:8px;" onclick="goMenu()">Back to Menu</button>
@@ -15097,6 +15137,7 @@ function openAchievements(){ achievementsOpen=true; render(); }
   if(maybeShowLiveCheck()) return; // private admin view -- takes over the whole page, skips the game entirely
   startPresenceHeartbeat();
   await loadLifetime();
+  state.coachName = state.lifetime.coachName || null;
   try{ const _r=await loadDaily(); state.dailyStreak=dailyStreak(_r); state.dailyTodayDone=!!(_r&&_r[todayStr()]); }catch(e){ state.dailyStreak=0; state.dailyTodayDone=false; }
   let ch=null;
   try{
