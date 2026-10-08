@@ -8881,7 +8881,7 @@ function startArchivedDaily(dateStr){
   state.daily = { date: dateStr, archived: true };
   DAILY_RNG = makeRng(dailySeedFor(dateStr));
   state.multiplayer=false; state.challenge=null;
-  state.chosenEra=ERA_ORDER[Math.floor(DAILY_RNG()*ERA_ORDER.length)]; state.picks={};
+  state.chosenEra=null; state.picks={}; // daily is base ratings only -- no era bonus/penalty
   state.teamRespinsLeft=0; state.decadeRespinsLeft=0; // same fixed wheel rule as the real daily
   state.screen="draft";
   resetReels();
@@ -9015,7 +9015,7 @@ async function startDaily(){
   state.daily = { date: todayStr() };
   DAILY_RNG = makeRng(dailySeedFor(todayStr()));
   state.multiplayer=false; state.challenge=null;
-  state.chosenEra=ERA_ORDER[Math.floor(DAILY_RNG()*ERA_ORDER.length)]; state.picks={};
+  state.chosenEra=null; state.picks={}; // daily is base ratings only -- no era bonus/penalty
   // classic draft, but the wheel is now deterministic for the day
   // NO respins in daily: everyone must draft from the exact same wheel for the ranking to be fair
   state.teamRespinsLeft=0; state.decadeRespinsLeft=0;
@@ -9747,7 +9747,7 @@ function draftScoreCard(){
         <span>Season <b>&mdash;</b>/20</span>
         <span>Playoffs <b>&mdash;</b>/15</span>
       </div>
-      <div class="small" style="margin-top:8px;">Team overall <b>${avgOvrExact()}</b> / <b>${draftSkillCeiling()}</b> ${state.chosenEra||''} ceiling · win games &amp; a ring to build toward the <b>100</b> run score.</div>
+      <div class="small" style="margin-top:8px;">Team overall <b>${avgOvrExact()}</b> / <b>${draftSkillCeiling()}</b> ${state.chosenEra?state.chosenEra+' ':''}ceiling · win games &amp; a ring to build toward the <b>100</b> run score.</div>
     </div>`;
   }
   const v = p.total, letter = gradeLetter(v), col = gradeColor(v);
@@ -9785,7 +9785,7 @@ function draftScoreCard(){
     </div>
     ${chase}
     ${leaks.length ? `<div class="leakBox"><div class="leakHead">Where the ${gap} went</div>${leaks.map(l=>`<p class="small leakRow">${l}</p>`).join('')}</div>` : ''}
-    <div class="small" style="margin-top:8px;opacity:.6;">Team overall <b>${avgOvrExact()}</b> / <b>${draftSkillCeiling()}</b> ${state.chosenEra||''} ceiling</div>
+    <div class="small" style="margin-top:8px;opacity:.6;">Team overall <b>${avgOvrExact()}</b> / <b>${draftSkillCeiling()}</b> ${state.chosenEra?state.chosenEra+' ':''}ceiling</div>
   </div>`;
 }
 function renderReveal(){
@@ -11921,6 +11921,8 @@ function renderDraft(){
     const poolOnEra = (state.decadeSpin.n === state.chosenEra);
     const fitLine = (state.mode==='bk' || state.mode==='blackout')
       ? `<span class="eraFit off">${MODE_LABEL[state.mode]} mode</span> — ratings hidden; trust your gut`
+      : !state.chosenEra
+      ? `<span class="eraFit" style="background:rgba(138,148,166,.16);color:#8a94a6;">base ratings</span> — no era bonus or penalty, every player rated on their own merit`
       : (poolOnEra
         ? `<span class="eraFit on">on-era +3</span> — this stint matches your ${state.chosenEra} era`
         : `<span class="eraFit off">off-era</span> — ${state.decadeSpin.n} isn't your ${state.chosenEra} era, but anyone who also played in the ${state.chosenEra} takes no penalty; the rest are docked by how well their game translates \u2014 the era gap, the direction (old-timers dragged into a newer game struggle more than moderns sent back), and their position all factor in`);
