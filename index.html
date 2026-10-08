@@ -8581,11 +8581,16 @@ const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"]
 function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<80"; }
 async function getGameAnalytics(){
   if(!SUPA_ON()) return null;
-  const all = await supaFetch(); // up to 5000 most recent rows, every mode
+  const all = await supaFetch(); // up to 5000 most recent rows, every mode -- fine for relative mode popularity
   const modeCounts = {};
   for(const d of all){ const m=d.mode||"classic"; modeCounts[m]=(modeCounts[m]||0)+1; }
+  // Classic gets its own dedicated fetch: daily alone already exceeds the shared 5000-row cap, so
+  // filtering `all` down to classic was silently truncating it to whatever recent slice survived --
+  // 984 one day, a different number the next, never the real total. mode=eq.classic isn't capped by
+  // daily's volume at all.
+  const classic = await supaFetchMode("classic");
+  modeCounts.classic = classic.length; // keep the popularity list consistent with the real total below
   const modes = Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]);
-  const classic = all.filter(d=>d.mode==="classic");
   const buckets = {};
   OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0, score100:0});
   let totalPerfect=0, totalWins=0, totalScore100=0;
