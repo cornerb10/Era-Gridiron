@@ -8652,7 +8652,7 @@ function maybeShowLiveCheck(){
         <select id="lcModeSelect" style="background:#141922;color:#f2c230;border:1px solid rgba(242,194,48,.3);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;"></select>
       </div>
       <div id="lcGameSummary" style="font-size:12px;opacity:.5;text-align:center;margin-bottom:10px;"></div>
-      <div style="display:grid;grid-template-columns:48px 46px 1fr 1fr;gap:4px;padding:2px 2px;font-size:10px;opacity:.4;letter-spacing:1px;">
+      <div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr;gap:4px;padding:2px 2px;font-size:10px;opacity:.4;letter-spacing:1px;">
         <span>BAND</span><span style="text-align:right;">DRAFTS</span><span style="text-align:right;">17-0</span><span style="text-align:right;">100</span>
       </div>
       <div id="lcBands" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
@@ -8706,9 +8706,9 @@ function maybeShowLiveCheck(){
         `${g.total} ${lcMode} runs · ${g.perfect} went 17-0 (${g.total?(100*g.perfect/g.total).toFixed(2):"0.00"}%) · ${g.score100} hit a 100 score (${g.total?(100*g.score100/g.total).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
       const pct = (x,n) => n ? (100*x/n).toFixed(1)+'%' : '—';
       const bandRow = (label,n,perfect,score100,strong) =>
-        `<div style="display:grid;grid-template-columns:48px 46px 1fr 1fr;gap:4px;padding:4px 2px;${strong?'border-top:1px solid rgba(242,194,48,.25);margin-top:2px;padding-top:8px;font-weight:700;':''}">
+        `<div style="display:grid;grid-template-columns:44px 1fr 1fr 1fr;gap:4px;padding:4px 2px;${strong?'border-top:1px solid rgba(242,194,48,.25);margin-top:2px;padding-top:8px;font-weight:700;':''}">
            <span style="opacity:${strong?1:.7};">${label}</span>
-           <span class="mono" style="text-align:right;">${n}</span>
+           <span class="mono" style="text-align:right;">${n} <span style="opacity:.6;">(${pct(n,g.total)})</span></span>
            <span class="mono" style="text-align:right;">${perfect} <span style="opacity:.6;">(${pct(perfect,n)})</span></span>
            <span class="mono" style="text-align:right;">${score100} <span style="opacity:.6;">(${pct(score100,n)})</span></span>
          </div>`;
