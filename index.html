@@ -8577,8 +8577,13 @@ async function getTodayVisits(){
    sliced two ways: mode popularity across every mode, and a classic-only 17-0 rate broken out by
    avgOvr band -- the exact band split used to sanity-check the sim's balance by hand earlier,
    now live on the page instead of a one-off console script. */
-const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"],[80,84,"80-84"],[0,79,"<80"]];
-function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<80"; }
+/* Floor is 40, not 0 -- sanitizeEntry() clamps avgOvr to [40,99] before it ever reaches Supabase,
+   so 40 is the real lowest a saved draft can read. Bands below 80 are split out (rather than one
+   "<80" catch-all) so the low end of the roster-quality curve is visible too, not just folded into
+   one bucket -- these obviously won't show real 17-0/100 rates, but the draft-count column is the
+   point down there. */
+const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"],[80,84,"80-84"],[75,79,"75-79"],[70,74,"70-74"],[65,69,"65-69"],[60,64,"60-64"],[40,59,"<60"]];
+function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<60"; }
 async function getModePopularity(){
   if(!SUPA_ON()) return null;
   const all = await supaFetch(); // up to 5000 most recent rows, every mode -- fine for relative popularity
@@ -8648,7 +8653,7 @@ function maybeShowLiveCheck(){
       </div>
       <div id="lcGameSummary" style="font-size:12px;opacity:.5;text-align:center;margin-bottom:10px;"></div>
       <div style="display:flex;justify-content:space-between;padding:2px 2px;font-size:10px;opacity:.4;letter-spacing:1px;">
-        <span>BAND</span><span>17-0</span><span>100 SCORE</span>
+        <span>BAND</span><span>DRAFTS</span><span>17-0</span><span>100 SCORE</span>
       </div>
       <div id="lcBands" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
       <div id="lcGameNote" style="font-size:11px;opacity:.4;text-align:center;margin-top:8px;"></div>
@@ -8702,6 +8707,7 @@ function maybeShowLiveCheck(){
       const bandRow = (label,n,perfect,score100,strong) =>
         `<div style="display:flex;justify-content:space-between;padding:4px 2px;${strong?'border-top:1px solid rgba(242,194,48,.25);margin-top:2px;padding-top:8px;font-weight:700;':''}">
            <span style="opacity:${strong?1:.7};">${label}</span>
+           <span class="mono">${n}</span>
            <span class="mono">${perfect}/${n} ${n?('('+(100*perfect/n).toFixed(2)+'%)'):''}</span>
            <span class="mono">${score100}/${n} ${n?('('+(100*score100/n).toFixed(2)+'%)'):''}</span>
          </div>`;
