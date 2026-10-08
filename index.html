@@ -8587,17 +8587,18 @@ async function getGameAnalytics(){
   const modes = Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]);
   const classic = all.filter(d=>d.mode==="classic");
   const buckets = {};
-  OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0});
-  let totalPerfect=0, totalWins=0;
+  OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0, score100:0});
+  let totalPerfect=0, totalWins=0, totalScore100=0;
   for(const d of classic){
     const b = buckets[bandFor(Math.round(d.avgOvr||0))];
     b.n++;
     totalWins += (d.wins||0);
     if(d.undefeated || d.losses===0){ b.perfect++; totalPerfect++; }
+    if((d.score||0)>=100){ b.score100++; totalScore100++; }
   }
-  const bands = OVR_BANDS.map(([,,label])=>({ label, n:buckets[label].n, perfect:buckets[label].perfect }));
+  const bands = OVR_BANDS.map(([,,label])=>({ label, n:buckets[label].n, perfect:buckets[label].perfect, score100:buckets[label].score100 }));
   return { totalEntries: all.length, modes, classicTotal: classic.length, classicPerfect: totalPerfect,
-           avgWins: classic.length ? (totalWins/classic.length) : 0, bands };
+           classicScore100: totalScore100, avgWins: classic.length ? (totalWins/classic.length) : 0, bands };
 }
 /* Hidden private view: open 17-0.football/?livecheck=1 -- not linked from anywhere in the UI. */
 function maybeShowLiveCheck(){
@@ -8631,8 +8632,11 @@ function maybeShowLiveCheck(){
       <div id="lcModes" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
     </div>
     <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
-      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:4px;">17-0 RATE BY ROSTER RATING &middot; CLASSIC</div>
+      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:4px;">17-0 &amp; PERFECT (100) RATE BY ROSTER RATING &middot; CLASSIC</div>
       <div id="lcGameSummary" style="font-size:12px;opacity:.5;text-align:center;margin-bottom:10px;"></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 2px;font-size:10px;opacity:.4;letter-spacing:1px;">
+        <span>BAND</span><span>17-0</span><span>100 SCORE</span>
+      </div>
       <div id="lcBands" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
       <div id="lcGameNote" style="font-size:11px;opacity:.4;text-align:center;margin-top:8px;"></div>
     </div>`;
@@ -8668,11 +8672,12 @@ function maybeShowLiveCheck(){
         `<div style="display:flex;justify-content:space-between;padding:4px 2px;"><span style="opacity:.7;">${mode}</span><span class="mono">${count}</span></div>`
       ).join("") || `<div style="text-align:center;opacity:.4;">no entries</div>`;
       document.getElementById("lcGameSummary").textContent =
-        `${g.classicTotal} classic runs · ${g.classicPerfect} went 17-0 (${g.classicTotal?(100*g.classicPerfect/g.classicTotal).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
+        `${g.classicTotal} classic runs · ${g.classicPerfect} went 17-0 (${g.classicTotal?(100*g.classicPerfect/g.classicTotal).toFixed(2):"0.00"}%) · ${g.classicScore100} hit a 100 draft score (${g.classicTotal?(100*g.classicScore100/g.classicTotal).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
       document.getElementById("lcBands").innerHTML = g.bands.map(b=>
         `<div style="display:flex;justify-content:space-between;padding:4px 2px;">
            <span style="opacity:.7;">${b.label}</span>
            <span class="mono">${b.perfect}/${b.n} ${b.n?('('+(100*b.perfect/b.n).toFixed(2)+'%)'):''}</span>
+           <span class="mono">${b.score100}/${b.n} ${b.n?('('+(100*b.score100/b.n).toFixed(2)+'%)'):''}</span>
          </div>`
       ).join("");
       document.getElementById("lcGameNote").textContent = "game data updated " + new Date().toLocaleTimeString() + " · " + g.totalEntries + " total entries pulled";
