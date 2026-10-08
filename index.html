@@ -8557,6 +8557,48 @@ async function getLiveConcurrent(){
     .sort((a,b)=>b.ms-a.ms); // longest-checked-in first
   return { active, total: rows.length, sessions };
 }
+/* Visits today, straight off presence rows -- a session's row is upserted in place for its whole
+   life, never deleted, so first_seen >= today's UTC midnight is an honest count of tabs that
+   first showed up today, live sessions included, no separate event log needed. */
+async function getTodayVisits(){
+  if(!SUPA_ON()) return null;
+  const midnight = new Date(); midnight.setUTCHours(0,0,0,0);
+  const url = SUPABASE_URL.replace(/\/$/,"") + "/rest/v1/presence?select=first_seen,last_seen&first_seen=gte." + encodeURIComponent(midnight.toISOString());
+  const res = await fetch(url, { headers: supaHeaders() });
+  if(!res.ok) throw new Error("presence today fetch "+res.status);
+  const rows = await res.json();
+  if(!rows.length) return { count:0, avgMs:0 };
+  // last_seen - first_seen: an ongoing session's duration so far, an ended one's full stay
+  const totalMs = rows.reduce((a,r)=> a + Math.max(0, new Date(r.last_seen).getTime() - new Date(r.first_seen).getTime()), 0);
+  return { count: rows.length, avgMs: totalMs/rows.length };
+}
+/* Game-data analytics off the same "leaderboard" table the real leaderboards read -- one fetch
+   (capped at 5000 most recent rows, same cap supaFetchPaged already enforces everywhere else),
+   sliced two ways: mode popularity across every mode, and a classic-only 17-0 rate broken out by
+   avgOvr band -- the exact band split used to sanity-check the sim's balance by hand earlier,
+   now live on the page instead of a one-off console script. */
+const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"],[80,84,"80-84"],[0,79,"<80"]];
+function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<80"; }
+async function getGameAnalytics(){
+  if(!SUPA_ON()) return null;
+  const all = await supaFetch(); // up to 5000 most recent rows, every mode
+  const modeCounts = {};
+  for(const d of all){ const m=d.mode||"classic"; modeCounts[m]=(modeCounts[m]||0)+1; }
+  const modes = Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]);
+  const classic = all.filter(d=>d.mode==="classic");
+  const buckets = {};
+  OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0});
+  let totalPerfect=0, totalWins=0;
+  for(const d of classic){
+    const b = buckets[bandFor(Math.round(d.avgOvr||0))];
+    b.n++;
+    totalWins += (d.wins||0);
+    if(d.undefeated || d.losses===0){ b.perfect++; totalPerfect++; }
+  }
+  const bands = OVR_BANDS.map(([,,label])=>({ label, n:buckets[label].n, perfect:buckets[label].perfect }));
+  return { totalEntries: all.length, modes, classicTotal: classic.length, classicPerfect: totalPerfect,
+           avgWins: classic.length ? (totalWins/classic.length) : 0, bands };
+}
 /* Hidden private view: open 17-0.football/?livecheck=1 -- not linked from anywhere in the UI. */
 function maybeShowLiveCheck(){
   try{
@@ -8565,18 +8607,34 @@ function maybeShowLiveCheck(){
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;inset:0;background:#0a0a0a;color:#f2c230;z-index:99999;display:flex;flex-direction:column;align-items:center;font-family:monospace;gap:18px;padding:30px 20px;overflow-y:auto;";
   box.innerHTML = `
-    <div style="text-align:center;">
-      <div style="font-size:13px;opacity:.6;letter-spacing:2px;">ACTIVE NOW</div>
-      <div id="lcActive" style="font-size:64px;font-weight:700;">--</div>
-    </div>
-    <div style="text-align:center;">
-      <div style="font-size:13px;opacity:.45;letter-spacing:2px;">TOTAL TABS OPEN</div>
-      <div id="lcTotal" style="font-size:36px;font-weight:700;opacity:.7;">--</div>
+    <div style="display:flex; gap:36px; justify-content:center; flex-wrap:wrap;">
+      <div style="text-align:center;">
+        <div style="font-size:13px;opacity:.6;letter-spacing:2px;">ACTIVE NOW</div>
+        <div id="lcActive" style="font-size:64px;font-weight:700;">--</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:13px;opacity:.45;letter-spacing:2px;">TOTAL TABS OPEN</div>
+        <div id="lcTotal" style="font-size:36px;font-weight:700;opacity:.7;">--</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:13px;opacity:.45;letter-spacing:2px;">VISITS TODAY</div>
+        <div id="lcVisitsToday" style="font-size:36px;font-weight:700;opacity:.7;">--</div>
+      </div>
     </div>
     <div id="lcNote" style="font-size:12px;opacity:.5;">checking...</div>
     <div style="width:100%;max-width:420px;margin-top:8px;">
       <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:10px;">SESSIONS &middot; TIME ON SITE</div>
       <div id="lcSessions" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
+      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:10px;">MODE POPULARITY &middot; UP TO 5000 RECENT ENTRIES</div>
+      <div id="lcModes" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
+    </div>
+    <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
+      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:4px;">17-0 RATE BY ROSTER RATING &middot; CLASSIC</div>
+      <div id="lcGameSummary" style="font-size:12px;opacity:.5;text-align:center;margin-bottom:10px;"></div>
+      <div id="lcBands" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
+      <div id="lcGameNote" style="font-size:11px;opacity:.4;text-align:center;margin-top:8px;"></div>
     </div>`;
   document.body.appendChild(box);
   const refresh = async () => {
@@ -8595,12 +8653,37 @@ function maybeShowLiveCheck(){
           </div>`
         ).join("") || `<div style="text-align:center;opacity:.4;font-size:13px;">nobody right now</div>`;
       }
+      const tv = await getTodayVisits();
+      document.getElementById("lcVisitsToday").textContent = (tv===null?"off":tv.count);
+      if(tv && tv.count) document.getElementById("lcVisitsToday").title = "avg stay today: " + humanDuration(tv.avgMs);
     }catch(e){
       document.getElementById("lcNote").textContent = "error: " + (e.message||e);
     }
   };
+  const refreshGameData = async () => {
+    try{
+      const g = await getGameAnalytics();
+      if(!g){ document.getElementById("lcGameNote").textContent = "supabase off"; return; }
+      document.getElementById("lcModes").innerHTML = g.modes.map(([mode,count])=>
+        `<div style="display:flex;justify-content:space-between;padding:4px 2px;"><span style="opacity:.7;">${mode}</span><span class="mono">${count}</span></div>`
+      ).join("") || `<div style="text-align:center;opacity:.4;">no entries</div>`;
+      document.getElementById("lcGameSummary").textContent =
+        `${g.classicTotal} classic runs · ${g.classicPerfect} went 17-0 (${g.classicTotal?(100*g.classicPerfect/g.classicTotal).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
+      document.getElementById("lcBands").innerHTML = g.bands.map(b=>
+        `<div style="display:flex;justify-content:space-between;padding:4px 2px;">
+           <span style="opacity:.7;">${b.label}</span>
+           <span class="mono">${b.perfect}/${b.n} ${b.n?('('+(100*b.perfect/b.n).toFixed(2)+'%)'):''}</span>
+         </div>`
+      ).join("");
+      document.getElementById("lcGameNote").textContent = "game data updated " + new Date().toLocaleTimeString() + " · " + g.totalEntries + " total entries pulled";
+    }catch(e){
+      document.getElementById("lcGameNote").textContent = "game data error: " + (e.message||e);
+    }
+  };
   refresh();
+  refreshGameData();
   setInterval(refresh, 10000);
+  setInterval(refreshGameData, 60000); // leaderboard data doesn't move fast enough to justify the 10s cadence
   return true;
 }
 function sanitizeEntry(e){
