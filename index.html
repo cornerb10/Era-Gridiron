@@ -8572,11 +8572,9 @@ async function getTodayVisits(){
   const totalMs = rows.reduce((a,r)=> a + Math.max(0, new Date(r.last_seen).getTime() - new Date(r.first_seen).getTime()), 0);
   return { count: rows.length, avgMs: totalMs/rows.length };
 }
-/* Game-data analytics off the same "leaderboard" table the real leaderboards read -- one fetch
-   (capped at 5000 most recent rows, same cap supaFetchPaged already enforces everywhere else),
-   sliced two ways: mode popularity across every mode, and a classic-only 17-0 rate broken out by
-   avgOvr band -- the exact band split used to sanity-check the sim's balance by hand earlier,
-   now live on the page instead of a one-off console script. */
+/* Game-data analytics off the same "leaderboard" table the real leaderboards read. Mode popularity
+   and the OVR-band breakdown below both pull up to LC_WANT (50000) most recent rows -- far past the
+   player-facing default of 5000, since this admin page needs the real totals, not a recent slice. */
 /* Floor is 40, not 0 -- sanitizeEntry() clamps avgOvr to [40,99] before it ever reaches Supabase,
    so 40 is the real lowest a saved draft can read. Bands below 80 are split out (rather than one
    "<80" catch-all) so the low end of the roster-quality curve is visible too, not just folded into
@@ -8584,23 +8582,24 @@ async function getTodayVisits(){
    point down there. */
 const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"],[80,84,"80-84"],[75,79,"75-79"],[70,74,"70-74"],[65,69,"65-69"],[60,64,"60-64"],[40,59,"<60"]];
 function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<60"; }
+const LC_WANT = 50000; // admin-only page, not the player-facing leaderboard screens -- those stay at the default 5000 so nobody's load time pays for this
 async function getModePopularity(){
   if(!SUPA_ON()) return null;
-  const all = await supaFetch(); // up to 5000 most recent rows, every mode -- fine for relative popularity
+  const all = await supaFetch(LC_WANT);
   const modeCounts = {};
   for(const d of all){ const m=d.mode||"classic"; modeCounts[m]=(modeCounts[m]||0)+1; }
   return { totalEntries: all.length, modes: Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]) };
 }
 /* Band breakdown for ONE mode at a time, fetched on its own (mode=eq.<mode>) rather than filtered
-   out of the shared "most recent 5000 across every mode" pool -- a high-volume mode like daily
-   would otherwise crowd a lower-volume one out of its share of that cap and silently undercount it
+   out of the shared "most recent across every mode" pool -- a high-volume mode like daily would
+   otherwise crowd a lower-volume one out of its share of that cap and silently undercount it
    (confirmed: this happened to classic, 984 shown vs a much larger real total). Every mode's saved
    entries share sanitizeEntry()'s shape (wins/losses/undefeated/avgOvr/score), so this works for
    any of them -- though for the multi-season modes (gauntlet/rebuild/league) "score" is rings, not
    a 0-100 draft score, so the 100-score column will legitimately read 0 there. */
 async function getModeBreakdown(mode){
   if(!SUPA_ON()) return null;
-  const rows = await supaFetchMode(mode);
+  const rows = await supaFetchMode(mode, LC_WANT);
   const buckets = {};
   OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0, score100:0});
   let totalPerfect=0, totalWins=0, totalScore100=0;
@@ -8643,7 +8642,7 @@ function maybeShowLiveCheck(){
       <div id="lcSessions" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
     <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
-      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:10px;">MODE POPULARITY &middot; UP TO 5000 RECENT ENTRIES</div>
+      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:10px;">MODE POPULARITY &middot; UP TO 50000 RECENT ENTRIES</div>
       <div id="lcModes" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
     </div>
     <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
@@ -8770,8 +8769,8 @@ async function supaSave(entry){
    (confirmed: asking for 5000 in one shot still came back capped). So we page through in chunks
    at that same cap and stitch results together client-side until we hit WANT or run out of rows.
    Ranking/sorting itself is untouched -- still plain JS over the full collected array, same as before. */
-async function supaFetchPaged(modeFilter){
-  const PAGE = 1000, WANT = 5000;
+async function supaFetchPaged(modeFilter, want){
+  const PAGE = 1000, WANT = want || 5000;
   const base = SUPABASE_URL.replace(/\/$/,"") + "/rest/v1/leaderboard?select=data"
     + (modeFilter ? "&mode=eq."+encodeURIComponent(modeFilter) : "")
     + "&order=created_at.desc";
@@ -8797,8 +8796,8 @@ async function supaFetchPaged(modeFilter){
   state.lbDebug = {trace, total: all.length};
   return all.slice(0, WANT);
 }
-async function supaFetch(){ return supaFetchPaged(null); }
-async function supaFetchMode(mode){ return supaFetchPaged(mode); }
+async function supaFetch(want){ return supaFetchPaged(null, want); }
+async function supaFetchMode(mode, want){ return supaFetchPaged(mode, want); }
 async function supaFetchDaily(date){
   // pull today's daily-challenge entries so we can rank a fresh run against everyone
   const url=SUPABASE_URL.replace(/\/$/,"")+"/rest/v1/leaderboard?select=data&mode=eq.daily&order=created_at.desc&limit=5000";
