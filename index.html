@@ -8673,13 +8673,15 @@ function maybeShowLiveCheck(){
       ).join("") || `<div style="text-align:center;opacity:.4;">no entries</div>`;
       document.getElementById("lcGameSummary").textContent =
         `${g.classicTotal} classic runs · ${g.classicPerfect} went 17-0 (${g.classicTotal?(100*g.classicPerfect/g.classicTotal).toFixed(2):"0.00"}%) · ${g.classicScore100} hit a 100 draft score (${g.classicTotal?(100*g.classicScore100/g.classicTotal).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
-      document.getElementById("lcBands").innerHTML = g.bands.map(b=>
-        `<div style="display:flex;justify-content:space-between;padding:4px 2px;">
-           <span style="opacity:.7;">${b.label}</span>
-           <span class="mono">${b.perfect}/${b.n} ${b.n?('('+(100*b.perfect/b.n).toFixed(2)+'%)'):''}</span>
-           <span class="mono">${b.score100}/${b.n} ${b.n?('('+(100*b.score100/b.n).toFixed(2)+'%)'):''}</span>
-         </div>`
-      ).join("");
+      const bandRow = (label,n,perfect,score100,strong) =>
+        `<div style="display:flex;justify-content:space-between;padding:4px 2px;${strong?'border-top:1px solid rgba(242,194,48,.25);margin-top:2px;padding-top:8px;font-weight:700;':''}">
+           <span style="opacity:${strong?1:.7};">${label}</span>
+           <span class="mono">${perfect}/${n} ${n?('('+(100*perfect/n).toFixed(2)+'%)'):''}</span>
+           <span class="mono">${score100}/${n} ${n?('('+(100*score100/n).toFixed(2)+'%)'):''}</span>
+         </div>`;
+      document.getElementById("lcBands").innerHTML =
+        g.bands.map(b=> bandRow(b.label, b.n, b.perfect, b.score100, false)).join("")
+        + bandRow("TOTAL", g.classicTotal, g.classicPerfect, g.classicScore100, true);
       document.getElementById("lcGameNote").textContent = "game data updated " + new Date().toLocaleTimeString() + " · " + g.totalEntries + " total entries pulled";
     }catch(e){
       document.getElementById("lcGameNote").textContent = "game data error: " + (e.message||e);
