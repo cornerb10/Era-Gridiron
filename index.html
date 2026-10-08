@@ -8579,22 +8579,27 @@ async function getTodayVisits(){
    now live on the page instead of a one-off console script. */
 const OVR_BANDS = [[96,99,"96+"],[94,95,"94-95"],[90,93,"90-93"],[85,89,"85-89"],[80,84,"80-84"],[0,79,"<80"]];
 function bandFor(ovr){ for(const [lo,hi,label] of OVR_BANDS) if(ovr>=lo && ovr<=hi) return label; return "<80"; }
-async function getGameAnalytics(){
+async function getModePopularity(){
   if(!SUPA_ON()) return null;
-  const all = await supaFetch(); // up to 5000 most recent rows, every mode -- fine for relative mode popularity
+  const all = await supaFetch(); // up to 5000 most recent rows, every mode -- fine for relative popularity
   const modeCounts = {};
   for(const d of all){ const m=d.mode||"classic"; modeCounts[m]=(modeCounts[m]||0)+1; }
-  // Classic gets its own dedicated fetch: daily alone already exceeds the shared 5000-row cap, so
-  // filtering `all` down to classic was silently truncating it to whatever recent slice survived --
-  // 984 one day, a different number the next, never the real total. mode=eq.classic isn't capped by
-  // daily's volume at all.
-  const classic = await supaFetchMode("classic");
-  modeCounts.classic = classic.length; // keep the popularity list consistent with the real total below
-  const modes = Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]);
+  return { totalEntries: all.length, modes: Object.entries(modeCounts).sort((a,b)=>b[1]-a[1]) };
+}
+/* Band breakdown for ONE mode at a time, fetched on its own (mode=eq.<mode>) rather than filtered
+   out of the shared "most recent 5000 across every mode" pool -- a high-volume mode like daily
+   would otherwise crowd a lower-volume one out of its share of that cap and silently undercount it
+   (confirmed: this happened to classic, 984 shown vs a much larger real total). Every mode's saved
+   entries share sanitizeEntry()'s shape (wins/losses/undefeated/avgOvr/score), so this works for
+   any of them -- though for the multi-season modes (gauntlet/rebuild/league) "score" is rings, not
+   a 0-100 draft score, so the 100-score column will legitimately read 0 there. */
+async function getModeBreakdown(mode){
+  if(!SUPA_ON()) return null;
+  const rows = await supaFetchMode(mode);
   const buckets = {};
   OVR_BANDS.forEach(([,,label])=> buckets[label]={n:0, perfect:0, score100:0});
   let totalPerfect=0, totalWins=0, totalScore100=0;
-  for(const d of classic){
+  for(const d of rows){
     const b = buckets[bandFor(Math.round(d.avgOvr||0))];
     b.n++;
     totalWins += (d.wins||0);
@@ -8602,8 +8607,8 @@ async function getGameAnalytics(){
     if((d.score||0)>=100){ b.score100++; totalScore100++; }
   }
   const bands = OVR_BANDS.map(([,,label])=>({ label, n:buckets[label].n, perfect:buckets[label].perfect, score100:buckets[label].score100 }));
-  return { totalEntries: all.length, modes, classicTotal: classic.length, classicPerfect: totalPerfect,
-           classicScore100: totalScore100, avgWins: classic.length ? (totalWins/classic.length) : 0, bands };
+  return { mode, total: rows.length, perfect: totalPerfect, score100: totalScore100,
+           avgWins: rows.length ? (totalWins/rows.length) : 0, bands };
 }
 /* Hidden private view: open 17-0.football/?livecheck=1 -- not linked from anywhere in the UI. */
 function maybeShowLiveCheck(){
@@ -8637,7 +8642,10 @@ function maybeShowLiveCheck(){
       <div id="lcModes" style="display:flex;flex-direction:column;gap:4px;font-size:13px;"></div>
     </div>
     <div style="width:100%;max-width:420px;margin-top:18px;border-top:1px solid rgba(242,194,48,.15);padding-top:18px;">
-      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:4px;">17-0 &amp; PERFECT (100) RATE BY ROSTER RATING &middot; CLASSIC</div>
+      <div style="font-size:12px;opacity:.45;letter-spacing:2px;text-align:center;margin-bottom:10px;">17-0 &amp; PERFECT (100) RATE BY ROSTER RATING</div>
+      <div style="text-align:center;margin-bottom:10px;">
+        <select id="lcModeSelect" style="background:#141922;color:#f2c230;border:1px solid rgba(242,194,48,.3);border-radius:6px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:13px;"></select>
+      </div>
       <div id="lcGameSummary" style="font-size:12px;opacity:.5;text-align:center;margin-bottom:10px;"></div>
       <div style="display:flex;justify-content:space-between;padding:2px 2px;font-size:10px;opacity:.4;letter-spacing:1px;">
         <span>BAND</span><span>17-0</span><span>100 SCORE</span>
@@ -8669,15 +8677,28 @@ function maybeShowLiveCheck(){
       document.getElementById("lcNote").textContent = "error: " + (e.message||e);
     }
   };
-  const refreshGameData = async () => {
+  let lcMode = "classic";
+  const refreshModePopularity = async () => {
     try{
-      const g = await getGameAnalytics();
-      if(!g){ document.getElementById("lcGameNote").textContent = "supabase off"; return; }
-      document.getElementById("lcModes").innerHTML = g.modes.map(([mode,count])=>
+      const p = await getModePopularity();
+      if(!p){ document.getElementById("lcGameNote").textContent = "supabase off"; return; }
+      document.getElementById("lcModes").innerHTML = p.modes.map(([mode,count])=>
         `<div style="display:flex;justify-content:space-between;padding:4px 2px;"><span style="opacity:.7;">${mode}</span><span class="mono">${count}</span></div>`
       ).join("") || `<div style="text-align:center;opacity:.4;">no entries</div>`;
+      const sel = document.getElementById("lcModeSelect");
+      const known = p.modes.map(([mode])=>mode);
+      if(!known.includes(lcMode) && known.length) lcMode = known[0];
+      sel.innerHTML = known.map(m=>`<option value="${m}" ${m===lcMode?'selected':''}>${m}</option>`).join("");
+    }catch(e){
+      document.getElementById("lcGameNote").textContent = "mode popularity error: " + (e.message||e);
+    }
+  };
+  const refreshModeBreakdown = async () => {
+    try{
+      const g = await getModeBreakdown(lcMode);
+      if(!g){ document.getElementById("lcGameNote").textContent = "supabase off"; return; }
       document.getElementById("lcGameSummary").textContent =
-        `${g.classicTotal} classic runs · ${g.classicPerfect} went 17-0 (${g.classicTotal?(100*g.classicPerfect/g.classicTotal).toFixed(2):"0.00"}%) · ${g.classicScore100} hit a 100 draft score (${g.classicTotal?(100*g.classicScore100/g.classicTotal).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
+        `${g.total} ${lcMode} runs · ${g.perfect} went 17-0 (${g.total?(100*g.perfect/g.total).toFixed(2):"0.00"}%) · ${g.score100} hit a 100 score (${g.total?(100*g.score100/g.total).toFixed(2):"0.00"}%) · avg ${g.avgWins.toFixed(1)} wins`;
       const bandRow = (label,n,perfect,score100,strong) =>
         `<div style="display:flex;justify-content:space-between;padding:4px 2px;${strong?'border-top:1px solid rgba(242,194,48,.25);margin-top:2px;padding-top:8px;font-weight:700;':''}">
            <span style="opacity:${strong?1:.7};">${label}</span>
@@ -8686,16 +8707,24 @@ function maybeShowLiveCheck(){
          </div>`;
       document.getElementById("lcBands").innerHTML =
         g.bands.map(b=> bandRow(b.label, b.n, b.perfect, b.score100, false)).join("")
-        + bandRow("TOTAL", g.classicTotal, g.classicPerfect, g.classicScore100, true);
-      document.getElementById("lcGameNote").textContent = "game data updated " + new Date().toLocaleTimeString() + " · " + g.totalEntries + " total entries pulled";
+        + bandRow("TOTAL", g.total, g.perfect, g.score100, true);
+      document.getElementById("lcGameNote").textContent = lcMode + " data updated " + new Date().toLocaleTimeString();
     }catch(e){
-      document.getElementById("lcGameNote").textContent = "game data error: " + (e.message||e);
+      document.getElementById("lcGameNote").textContent = "mode breakdown error: " + (e.message||e);
     }
   };
+  document.getElementById("lcModeSelect").addEventListener("change", (e)=>{
+    lcMode = e.target.value;
+    document.getElementById("lcGameNote").textContent = "loading " + lcMode + "...";
+    refreshModeBreakdown();
+  });
   refresh();
-  refreshGameData();
+  refreshModePopularity();
+  refreshModeBreakdown();
   setInterval(refresh, 10000);
-  setInterval(refreshGameData, 60000); // leaderboard data doesn't move fast enough to justify the 10s cadence
+  // leaderboard data doesn't move fast enough to justify the 10s cadence
+  setInterval(refreshModePopularity, 60000);
+  setInterval(refreshModeBreakdown, 60000);
   return true;
 }
 function sanitizeEntry(e){
