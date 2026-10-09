@@ -12955,8 +12955,13 @@ function postRender(){
 /* ---------- Save / resume an in-progress run ---------- */
 const RUN_KEY = "seventeen0-run";
 const RUN_FIELDS = ["screen","mode","chosenEra","revealed","picks","teamSpin","decadeSpin","teamRespinsLeft","decadeRespinsLeft","season","playoffs","statsReg","statsPost","awards","statsView","draft","runSaved","capSpent","lockedTeam","gauntlet","gPick","league","lgCfg","lgScoutIdx","wildcardLayout"];
+/* Used to gate state.chosenEra here too, which made sense back when every mode always set a real
+   era -- Daily deliberately leaves it null now (no era boosts), so that gate was silently blocking
+   Daily runs from ever being saved or resumed. The real signal was always these progress checks,
+   not era. */
 function runInProgress(){
-  if(state.league && !state.league.over) return true; return !!(state.chosenEra && (Object.keys(state.picks||{}).length>0 || state.season || state.playoffs || (state.gauntlet && !state.gauntlet.over))); }
+  if(state.league && !state.league.over) return true;
+  return !!(Object.keys(state.picks||{}).length>0 || state.season || state.playoffs || (state.gauntlet && !state.gauntlet.over)); }
 function saveRun(){
   try{
     if(!runInProgress()){ store.set(RUN_KEY, "", false); return; }
@@ -12967,7 +12972,7 @@ function saveRun(){
 function clearRun(){ try{ store.set(RUN_KEY, "", false); }catch(e){} state.pendingResume=null; }
 async function loadRun(){
   try{ const r=await store.get(RUN_KEY, false); if(r&&r.value){ const snap=JSON.parse(r.value);
-    if(snap && snap.chosenEra && (Object.keys(snap.picks||{}).length || snap.season || snap.playoffs || snap.league)) return snap; } }catch(e){}
+    if(snap && (Object.keys(snap.picks||{}).length || snap.season || snap.playoffs || snap.league)) return snap; } }catch(e){}
   return null;
 }
 function lgResumeNote(snap){
@@ -13036,7 +13041,7 @@ function ResumeModal(){
   return `<div class="modalBg"><div class="modalBox" style="text-align:center;">
     <h2 style="margin-bottom:6px;">Welcome back</h2>
     <p class="small" style="margin-bottom:6px;">You left a run in progress:</p>
-    <p style="font-weight:700; font-size:18px; margin-bottom:2px;">${MODE_LABEL[snap.mode||"classic"]} \u00b7 ${snap.chosenEra||""}</p>
+    <p style="font-weight:700; font-size:18px; margin-bottom:2px;">${[MODE_LABEL[snap.mode||"classic"], snap.chosenEra].filter(Boolean).join(" \u00b7 ")}</p>
     <p class="cslot" style="margin-bottom:16px;">${prog}</p>
     <button class="btn" onclick="resumeRun()">${snap.league?"Resume League":"Resume Run"}</button>
     <button class="btn secondary" style="margin-top:8px;" onclick="startFresh()">Start Fresh</button>
