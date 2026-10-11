@@ -8557,12 +8557,28 @@ async function getLiveConcurrent(){
     .sort((a,b)=>b.ms-a.ms); // longest-checked-in first
   return { active, total: rows.length, sessions };
 }
+/* "Midnight today" in US Eastern, DST-safe -- this is a private, one-reader admin page, so "today"
+   should match the one person reading it, not an arbitrary UTC cutover 4-5 hours off their actual
+   midnight. New York is only ever UTC-4 (EDT) or UTC-5 (EST), so instead of subtracting elapsed
+   wall-clock time (which breaks on the one day a year clocks fall back -- tested and confirmed: it
+   lands an hour late on Nov 1), try both offsets against today's calendar date and keep whichever
+   one actually formats back to 00:00 in America/New_York. */
+function easternMidnightUTC(){
+  const ymd = new Intl.DateTimeFormat('en-CA', {timeZone:'America/New_York'}).format(new Date()); // "YYYY-MM-DD"
+  for(const offsetHours of [4,5]){
+    const candidate = new Date(ymd+'T00:00:00.000Z');
+    candidate.setUTCHours(candidate.getUTCHours()+offsetHours);
+    const hr = new Intl.DateTimeFormat('en-US', {timeZone:'America/New_York', hour:'2-digit', hour12:false}).format(candidate);
+    if(hr==='00'||hr==='24') return candidate;
+  }
+  return new Date(ymd+'T05:00:00.000Z'); // unreachable in practice, EST fallback
+}
 /* Visits today, straight off presence rows -- a session's row is upserted in place for its whole
-   life, never deleted, so first_seen >= today's UTC midnight is an honest count of tabs that
+   life, never deleted, so first_seen >= today's Eastern midnight is an honest count of tabs that
    first showed up today, live sessions included, no separate event log needed. */
 async function getTodayVisits(){
   if(!SUPA_ON()) return null;
-  const midnight = new Date(); midnight.setUTCHours(0,0,0,0);
+  const midnight = easternMidnightUTC();
   const url = SUPABASE_URL.replace(/\/$/,"") + "/rest/v1/presence?select=first_seen,last_seen&first_seen=gte." + encodeURIComponent(midnight.toISOString());
   const res = await fetch(url, { headers: supaHeaders() });
   if(!res.ok) throw new Error("presence today fetch "+res.status);
@@ -8632,7 +8648,7 @@ function maybeShowLiveCheck(){
         <div id="lcTotal" style="font-size:36px;font-weight:700;opacity:.7;">--</div>
       </div>
       <div style="text-align:center;">
-        <div style="font-size:13px;opacity:.45;letter-spacing:2px;">VISITS TODAY</div>
+        <div style="font-size:13px;opacity:.45;letter-spacing:2px;">VISITS TODAY (ET)</div>
         <div id="lcVisitsToday" style="font-size:36px;font-weight:700;opacity:.7;">--</div>
       </div>
     </div>
