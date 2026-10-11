@@ -12062,7 +12062,9 @@ function renderSeason(){
     </div>`;
   }
   return `${Scorebug()}
-  <div class="card"><h2 style="margin-bottom:4px;">Simulating Your Season</h2><p class="small">Roster average: ${avgOvr()} OVR · ${state.chosenEra?`<b style="color:${eraProfile().c};">${state.chosenEra} — ${eraProfile().label}</b> · `:''}17-game schedule vs. league-average competition</p></div>
+  <div class="card"><h2 style="margin-bottom:4px;">Simulating Your Season</h2><p class="small">Roster average: ${avgOvr()} OVR · ${state.chosenEra?`<b style="color:${eraProfile().c};">${state.chosenEra} — ${eraProfile().label}</b> · `:''}17-game schedule vs. league-average competition</p>
+    <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">← Back to Menu</button>
+  </div>
   ${draftScoreCard()}
   ${phaseBlock}
   ${(s.complete) ? seasonMvpCard() : ""}
@@ -12114,7 +12116,9 @@ function renderPlayoffs(){
   }
 
   return `${Scorebug()}
-  <div class="card"><h2 style="margin-bottom:4px;">NFL Playoffs</h2><p class="small">Single elimination — win four (or three with a bye) to lift the trophy. Opponents get tougher each round.</p></div>
+  <div class="card"><h2 style="margin-bottom:4px;">NFL Playoffs</h2><p class="small">Single elimination — win four (or three with a bye) to lift the trophy. Opponents get tougher each round.</p>
+    <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">← Back to Menu</button>
+  </div>
   <div class="card center">${ctrl}</div>
   ${(po.champion||po.eliminated) ? (draftScoreCard() + awardsCard() + `<div class="card"><h3 style="margin-bottom:6px;">Your Roster</h3>${rosterRecapHtml()}</div>`) : ""}
   <div class="card"><h3 style="margin-bottom:6px;">Your Bracket</h3>${bracket}</div>
@@ -14370,6 +14374,7 @@ function renderLgOffseason(){
         ? `You finished near the bottom, so you get an <b style="color:#5fd97a;">early look</b>. The one mercy of a bad year.`
         : `Reverse standings. The worse you finished, the earlier you sign.`}</p>
     ${gone?`<p class="small" style="margin-top:8px;color:#e5484d;">${gone} player${gone>1?'s':''} already signed elsewhere this offseason.</p>`:''}
+    <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">← Back to Menu</button>
   </div>
   ${LgDynastyBoard()}
   ${LgRetirements()}
@@ -14437,7 +14442,10 @@ function renderLgScout(){
   </div>
   <div class="card"><div style="display:flex;flex-wrap:wrap;gap:5px;">${nav}</div></div>
   ${body}
-  <div class="card center"><button class="btn secondary" onclick="state.screen='lgstandings'; render();">\u2190 Back to Standings</button></div>
+  <div class="card center">
+    <button class="btn secondary" onclick="state.screen='lgstandings'; render();">\u2190 Back to Standings</button>
+    <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">\u2190 Back to Menu</button>
+  </div>
   ${Footer()}`;
 }
 /* ---- #5: the retirement beat ---- */
@@ -14484,6 +14492,7 @@ function renderLgStandings(){
     <p class="small">${seed>=0
       ? `You're the <b style="color:var(--primary);">#${seed+1} seed</b>. ${seed===0?'Top of the league.':''}`
       : `<b style="color:#e5484d;">You missed the playoffs.</b> Top ${LG().playoff} get in.`}</p>
+    <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">← Back to Menu</button>
   </div>
   <div class="card">
     <h3 style="margin-bottom:8px;">The League</h3>
@@ -14576,6 +14585,7 @@ function renderLgBracket(){
         ${stillIn ? `You're still alive \u2014 <b>#${sd(0)} seed</b>.` : `You're out. Watch it play out.`}
       </p>
       <button class="btn" onclick="lgPlayRound()">Play the ${nextName} \u2192</button>
+      <button class="btn secondary" style="margin-top:8px;" onclick="goHome()">\u2190 Back to Menu</button>
     </div>
     ${alive}`}
   ${B.log.length?`<div class="card"><h3 style="margin-bottom:10px;">The Bracket</h3>${played}</div>`:''}
